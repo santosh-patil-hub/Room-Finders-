@@ -1,17 +1,16 @@
 # views.py
-
-from rest_framework import status
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from .serializers import RegisterSerializer
-
-# views.py
-
-from rest_framework.permissions import AllowAny  # Import AllowAny
+from rest_framework import filters
+from rest_framework.permissions import AllowAny 
+from .serializers import RegisterSerializer,LoginSerializer,SearchSerializer,RoomSerializer
+from rest_framework_simplejwt.tokens import RefreshToken
+from django.contrib.auth import get_user_model
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from .serializers import RegisterSerializer
+from .models import Room
+
+User = get_user_model()
+
 
 class RegisterView(APIView):
     permission_classes = [AllowAny]  # Allow any user to access this view (no authentication required)
@@ -30,14 +29,6 @@ class RegisterView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-# views.py
-
-from rest_framework import status
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework_simplejwt.tokens import RefreshToken
-from .serializers import LoginSerializer
-
 class LoginView(APIView):
     permission_classes = [AllowAny]  # Allow any user to access this view (no authentication required)
     def post(self, request):
@@ -52,18 +43,6 @@ class LoginView(APIView):
             }, status=status.HTTP_200_OK)
         return Response({"message": "Invalid username or password"}, status=status.HTTP_400_BAD_REQUEST)
 
-
-# views.py
-
-from rest_framework import status
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-from .models import Room
-from .serializers import RoomSerializer
-from django.contrib.auth import get_user_model
-
-User = get_user_model()
 
 class OwnerRoomView(APIView):
     permission_classes = [AllowAny]
@@ -115,17 +94,6 @@ class OwnerRoomView(APIView):
         return Response({"message": "Room deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
 
 
-
-
-# views.py
-
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from rest_framework.permissions import IsAuthenticated
-from .models import Room
-from .serializers import RoomSerializer
-
 class TenantDashboardView(APIView):
     permission_classes = [AllowAny]
 
@@ -134,3 +102,41 @@ class TenantDashboardView(APIView):
         rooms = Room.objects.all()  # Get all rooms
         serializer = RoomSerializer(rooms, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+
+class SearchRoomView(APIView):
+    def get(self, request):
+        # Retrieve the query parameters from the request (e.g., title, room_type, rent_per_month, etc.)
+        title = request.GET.get('title', None)
+        room_type = request.GET.get('room_type', None)
+        rent_per_month = request.GET.get('rent_per_month', None)
+        address = request.GET.get('address', None)
+        landmark = request.GET.get('landmark', None)
+        area = request.GET.get('area', None)
+        
+        # Filter the rooms based on the query parameters
+        rooms = Room.objects.all()
+
+        if title:
+            rooms = rooms.filter(title__icontains=title)  # case-insensitive match
+        if room_type:
+            rooms = rooms.filter(room_type__icontains=room_type)
+        if rent_per_month:
+            try:
+                rooms = rooms.filter(rent_per_month__lte=float(rent_per_month))  # assuming rent is in float
+            except ValueError:
+                return Response({"error": "Invalid rent value"}, status=status.HTTP_400_BAD_REQUEST)
+        if address:
+            rooms = rooms.filter(address__icontains=address)
+        if landmark:
+            rooms = rooms.filter(landmark__icontains=landmark)
+        if area:
+            rooms = rooms.filter(area__name__icontains=area)  # Assuming 'area' is a related model
+
+        # Serialize the filtered rooms
+        serializer = SearchSerializer(rooms, many=True)
+        
+        # Return the response with the filtered data
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    

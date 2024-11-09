@@ -25,6 +25,16 @@ class Area(models.Model):
     def __str__(self):
         return self.name
 
+from django.db import models
+from django.conf import settings
+
+# Area model to represent different areas for rooms
+class Area(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+
+    def __str__(self):
+        return self.name
+
 class Room(models.Model):
     owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
     title = models.CharField(max_length=100)
@@ -69,6 +79,10 @@ class Room(models.Model):
     image4 = models.ImageField(blank=True, null=True, upload_to='room_images/')
     image5 = models.ImageField(blank=True, null=True, upload_to='room_images/')
     owner_mobile_no = models.CharField(max_length=15)
+
+    # New field for availability status
+    availability_status = models.CharField(choices=[('available', 'Available'), ('booked', 'Booked')], 
+                                           default='available', max_length=10)
 
     def __str__(self):
         return self.title
